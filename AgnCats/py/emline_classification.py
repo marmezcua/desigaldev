@@ -155,4 +155,34 @@ def Classify_OI_BPT(table, Kewley01=False):
     
     return (oi_bpt, sf_oi, agn_oi, liner_oi)
 
+
+def Classify_HeII_BPT(table):
+    fastspec_mask = table['HELIUM_FLUX'].mask     # Depends on the availability of Fastspecfit results
+    
+    snr = 3
+
+    SNR_Ha = table['HALPHA_FLUX']*np.sqrt(table['HALPHA_FLUX_IVAR'])
+    SNR_Hb = table['HBETA_FLUX']*np.sqrt(table['HBETA_FLUX_IVAR'])
+    SNR_OIII = table['HEII_4686_FLUX']*np.sqrt(table['HEII_4686_FLUX_IVAR'])
+    SNR_NII = table['NII_6584_FLUX']*np.sqrt(table['NII_6584_FLUX_IVAR'])
+    
+    zero_fluxes = (table['HALPHA_FLUX'] == 0) | (table['HBETA_FLUX'] == 0) | (table['HEII_4686_FLUX']  == 0) |(table['NII_6584_FLUX'] == 0) | fastspec_mask
+    
+    ## BPT DIAGRAM: HeII ##
+    #Shirazi & Brinchmann 2012
+    #log10(flux_heii_4685/flux_hbeta)=-1.22+1/(8.92*log10(flux_nii_6583/flux_halpha)+1.32)
+    i_bptheii = np.log10(table['NII_6584_FLUX']/table['HALPHA_FLUX'])
+    j_bptheii = np.log10(input['HEII_4686_FLUX']/input['HBETA_FLUX'])
+    Shir12_heii=-1.22+1/(8.92*i_bptnii+1.32)
+    
+    ## HeII-BPT is available (All SNR >= 3)
+    heii_bpt = (SNR_Ha >= snr) & (SNR_Hb >= snr) & (SNR_HeII >= snr) & (SNR_NII >= snr) & (~zero_fluxes)
+
+    ## HeII-Quiescent -- (SNR < 3 for one or more lines)
+    quiescent_heii = ((SNR_Ha<snr) | (SNR_Hb<snr) | (SNR_heII<snr) | (SNR_NII<snr)) & (~zero_fluxes)
+    agn_heii = (~quiescent_heii) & (j_bptheii>=Shir12_heii)
+    sf_heii = (~quiescent_heii) & (~agn_heii)
+    
+    return (heii_bpt, sf_heii, agn_heii, quiescent_heii)
+
 # Add other emission-line diagnostics below
